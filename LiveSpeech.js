@@ -134,99 +134,80 @@ export class LiveSpeech {
         try {
             // Retrieve audio chunk
             // Request prediction
-            // const results = await this.#ENGINE.classify(data, this.#AUDIO_CONTEXT.sampleRate);
-            // const categories = results[0].classifications[0].categories.slice(0,3);
-            console.log(this.#audioQueue);
-            // this.#audioQueue.push([...data]);
-            this.#audioQueue.push(data)
+            const results = await this.#ENGINE.classify(data, this.#AUDIO_CONTEXT.sampleRate);
+            const categories = results[0].classifications[0].categories.slice(0,3);
 
-            if(this.#audioQueue.length > 6){
-                const fullAudio = Float32Array.from(this.#audioQueue.flat());
-                const wavBlob = this.#float32ToWav(fullAudio);
-                const aud = document.createElement("audio");
-                aud.src = URL.createObjectURL(wavBlob);
-                aud.controls = true;
-                document.body.appendChild(aud);
-                this.#audioQueue = [];
+            // Validate predictions
+            let result = "silence"; // Default event 'noise';
+            for(let category of categories){
+                // Check speech events
+                if(this.#VOICE_CATEGORIES.includes(category.categoryName) && category.score > 0.4){
+                    result = "speech";
+                    break;
+                }
+                // Check silence events
+                else if(!this.#SILENCE_CATEGORIES.includes(category.categoryName) && category.score > 0.4) result = "noise";
             }
-
-
-            // // Validate predictions
-            // let result = "silence"; // Default event 'noise';
-            // for(let category of categories){
-            //     // Check speech events
-            //     if(this.#VOICE_CATEGORIES.includes(category.categoryName) && category.score > 0.4){
-            //         result = "speech";
-            //         break;
-            //     }
-            //     // Check silence events
-            //     else if(!this.#SILENCE_CATEGORIES.includes(category.categoryName) && category.score > 0.4) result = "noise";
-            // }
-            // const currentTime = new Date().getTime();
-            // // Process result
-            // switch(result){
-            //     case "speech":
-            //         // Add chunk to audio queue
-            //         this.#audioQueue.push([...data]);
-            //         this.#lastSpeechTimestamp = currentTime; // Update timestamp
-            //         // Dispatch speech start event callback
-            //         if(this.#audioQueue.length == 0 && this.onspeechstart != undefined) this.onspeechstart();
-            //         break;
-            //     case "noise":
-            //         if(!this.#noiseDetected){
-            //             // Update state
-            //             this.#noiseDetected = true;
-            //             // Dispatch sound start event callback
-            //             if(this.onsoundstart != undefined) this.onsoundstart();
-            //         }
-            //         // If audio speech is currently working, add chunk to queue
-            //         if(this.#audioQueue.length > 0 && (currentTime - this.#lastSpeechTimestamp) / 1000 < this.timeout) this.#audioQueue.push([...data]);
-            //         break;
-            //     default:
-            //         if(this.#audioQueue.length > 0){
-            //             if((currentTime - this.#lastSpeechTimestamp) / 1000 > this.timeout){
-            //                 // Dispatch speech end event callback
-            //                 if(this.onspeechend != undefined) this.onspeechend();
-            //                 // Dispatch sound end event callback
-            //                 if(this.onsoundend != undefined) this.onsoundend();
-            //                 // Build audio file
-            //                 const fullAudio = Float32Array.from(this.#audioQueue.flat());
-            //                 // Clean pipeline variables
-            //                 this.#audioQueue = [];
-            //                 this.#lastSpeechTimestamp = undefined;
-            //                 this.#noiseDetected = false;
-            //                 // Validate continuous speech recognition
-            //                 if(!this.continuous) this.stop();
-            //                 // Convert audio chunks into wav file
-            //                 const wavBlob = this.#float32ToWav(fullAudio);
-            //                 // Fill form
-            //                 const formData = new FormData();
-            //                 formData.append('file', wavBlob, 'audio.wav');
-            //                 formData.append('model', 'whisper-1');
-            //                 formData.append('model', 'whisper-1');
-
-            //                 const aud = document.createElement("audio");
-            //                 aud.src = URL.createObjectURL(wavBlob);
-            //                 aud.controls = true;
-            //                 document.body.appendChild(aud);
-            //                 // fetch(this.#RECO_URI, {
-            //                 //     method: 'POST',
-            //                 //     body: formData
-            //                 // })
-            //                 // .then(response => response.json())
-            //                 // .then(data => {
-            //                 //     this.onresult(data);
-            //                 // })
-            //                 // .catch(err => {
-            //                 //     console.error(`Transcription error: ${err}`);
-            //                 // });
-            //             } else {
-            //                 // Add audio chunk to queue
-            //                 this.#audioQueue.push([...data])
-            //             }
-            //         }
-            //         break;
-            // }
+            const currentTime = new Date().getTime();
+            // Process result
+            switch(result){
+                case "speech":
+                    // Add chunk to audio queue
+                    this.#audioQueue.push([...data]);
+                    this.#lastSpeechTimestamp = currentTime; // Update timestamp
+                    // Dispatch speech start event callback
+                    if(this.#audioQueue.length == 0 && this.onspeechstart != undefined) this.onspeechstart();
+                    break;
+                case "noise":
+                    if(!this.#noiseDetected){
+                        // Update state
+                        this.#noiseDetected = true;
+                        // Dispatch sound start event callback
+                        if(this.onsoundstart != undefined) this.onsoundstart();
+                    }
+                    // If audio speech is currently working, add chunk to queue
+                    if(this.#audioQueue.length > 0 && (currentTime - this.#lastSpeechTimestamp) / 1000 < this.timeout) this.#audioQueue.push([...data]);
+                    break;
+                default:
+                    if(this.#audioQueue.length > 0){
+                        if((currentTime - this.#lastSpeechTimestamp) / 1000 > this.timeout){
+                            // Dispatch speech end event callback
+                            if(this.onspeechend != undefined) this.onspeechend();
+                            // Dispatch sound end event callback
+                            if(this.onsoundend != undefined) this.onsoundend();
+                            // Build audio file
+                            const fullAudio = Float32Array.from(this.#audioQueue.flat());
+                            // Clean pipeline variables
+                            this.#audioQueue = [];
+                            this.#lastSpeechTimestamp = undefined;
+                            this.#noiseDetected = false;
+                            // Validate continuous speech recognition
+                            if(!this.continuous) this.stop();
+                            // Convert audio chunks into wav file
+                            const wavBlob = this.#float32ToWav(fullAudio);
+                            // Fill form
+                            const formData = new FormData();
+                            formData.append('file', wavBlob, 'audio.wav');
+                            formData.append('model', 'whisper-1');
+                            formData.append('model', 'whisper-1');
+                            fetch(this.#RECO_URI, {
+                                method: 'POST',
+                                body: formData
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                this.onresult(data);
+                            })
+                            .catch(err => {
+                                console.error(`Transcription error: ${err}`);
+                            });
+                        } else {
+                            // Add audio chunk to queue
+                            this.#audioQueue.push([...data])
+                        }
+                    }
+                    break;
+            }
         } catch (error) {
             this.onerror(error);
         }
@@ -240,6 +221,9 @@ export class LiveSpeech {
                 this.start();
             }, 500);
         }
+        // Prevent double executions
+        if (window.__LIVE_SPEECH_INITIALIZED__) return;
+        window.__LIVE_SPEECH_INITIALIZED__ = true;
         // Retrieve audio device.
         this.#getMediaDevice().then(async strm => {
             // Update media stream reference
