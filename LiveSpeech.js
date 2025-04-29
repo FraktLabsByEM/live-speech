@@ -171,6 +171,7 @@ export class LiveSpeech {
                 default:
                     if(this.#audioQueue.length > 0){
                         if((currentTime - this.#lastSpeechTimestamp) / 1000 > this.timeout){
+                            // console.log(this.#audioQueue)
                             // Dispatch speech end event callback
                             if(this.onspeechend != undefined) this.onspeechend();
                             // Dispatch sound end event callback
