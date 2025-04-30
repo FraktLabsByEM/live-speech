@@ -1,18 +1,11 @@
 // Mediapipe dependencies - YAMNET audio classifier
-import audio from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-audio@0.10.0";
+import audio from "/src/audio_bundle.js";
 const { AudioClassifier, AudioClassifierResult, FilesetResolver } = audio;
 // Instance of audio classifier
 const __audio__resolver = await FilesetResolver.forAudioTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-audio@0.10.0/wasm"
+    "/src/wasm"
   );
 
-/** Properties */
-// lang
-// continuous
-/** methods */
-// start
-// stop
-// abort
 
 export class LiveSpeech {
     // Mediapipe Engine
@@ -25,7 +18,7 @@ export class LiveSpeech {
     #audioNode;
     // Properties
     #RECO_URI;
-    #RECO_PATH;
+    #RECO_PARAMS;
     continuous = false;
     lang = "en";
     timeout = 1;
@@ -89,10 +82,13 @@ export class LiveSpeech {
      * @param {string} audioUri Uri where to request speech recognition.
      * @description LiveSpeech doesn't perform speech recognition, just manages live speech events for custom speech recognition engines.
      */
-    constructor(audioUri, options){
+    constructor(audioUri, request_params, options){
         if(!audioUri) throw new Error('LiveSpeech API requires a speech recognition URI. Param "audioUri" is required');
         // Assign back end properties
         this.#RECO_URI = audioUri;
+        if(request_params != undefined){
+            this.#RECO_PARAMS = request_params;
+        }
         // Assign optional properties
         if(options){
             if(options.lang) this.lang = options.lang;
@@ -102,7 +98,7 @@ export class LiveSpeech {
         // Load mediapipe yamnet task
         AudioClassifier.createFromOptions(__audio__resolver, {
                 baseOptions: {
-                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/audio_classifier/yamnet/float32/1/yamnet.tflite"
+                    modelAssetPath: "/src/yamnet.tflite"
                 }
             }).then(result => {
                 // Define speech recognition engine
@@ -188,8 +184,12 @@ export class LiveSpeech {
                             // Fill form
                             const formData = new FormData();
                             formData.append('file', wavBlob, 'audio.wav');
-                            formData.append('model', 'whisper-1');
-                            formData.append('model', 'whisper-1');
+                            if(this.#RECO_PARAMS){
+                                for(let key of Object.keys(this.#RECO_PARAMS)){
+                                    formData.append(key, this.#RECO_PARAMS[key]);
+                                }
+                            }
+
                             fetch(this.#RECO_URI, {
                                 method: 'POST',
                                 body: formData
@@ -200,6 +200,7 @@ export class LiveSpeech {
                             })
                             .catch(err => {
                                 console.error(`Transcription error: ${err}`);
+                                this.onerror(err);
                             });
                         } else {
                             // Add audio chunk to queue
