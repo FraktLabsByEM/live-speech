@@ -1,19 +1,14 @@
 // Mediapipe dependencies - YAMNET audio classifier
-import audio from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-audio@0.10.0";
-const { AudioClassifier, AudioClassifierResult, FilesetResolver } = audio;
+import audio from "/src/audio_bundle.js";
+const { AudioClassifier, FilesetResolver } = audio;
 // Instance of audio classifier
 const __audio__resolver = await FilesetResolver.forAudioTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-audio@0.10.0/wasm"
+    "/src/wasm"
   );
 
-/** Properties */
-// lang
-// continuous
-/** methods */
-// start
-// stop
-// abort
-
+/**
+ * Class LiveSpeech helps you to manage audio events like native speech recognition api
+ */
 export class LiveSpeech {
     // Mediapipe Engine
     #ENGINE;
@@ -102,7 +97,7 @@ export class LiveSpeech {
         // Load mediapipe yamnet task
         AudioClassifier.createFromOptions(__audio__resolver, {
                 baseOptions: {
-                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/audio_classifier/yamnet/float32/1/yamnet.tflite"
+                    modelAssetPath: "/src/yamnet.tflite"
                 }
             }).then(result => {
                 // Define speech recognition engine
@@ -196,17 +191,17 @@ export class LiveSpeech {
                             aud.src = URL.createObjectURL(wavBlob);
                             aud.controls = true;
                             document.body.appendChild(aud);
-                            // fetch(this.#RECO_URI, {
-                            //     method: 'POST',
-                            //     body: formData
-                            // })
-                            // .then(response => response.json())
-                            // .then(data => {
-                            //     this.onresult(data);
-                            // })
-                            // .catch(err => {
-                            //     console.error(`Transcription error: ${err}`);
-                            // });
+                            fetch(this.#RECO_URI, {
+                                method: 'POST',
+                                body: formData
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                this.onresult(data);
+                            })
+                            .catch(err => {
+                                console.error(`Transcription error: ${err}`);
+                            });
                         } else {
                             // Add audio chunk to queue
                             this.#audioQueue.push([...data])
@@ -227,6 +222,8 @@ export class LiveSpeech {
                 this.start();
             }, 500);
         }
+        if(window.__speech_engine_started) return;
+        window.__speech_engine_started = true;
         // Retrieve audio device.
         this.#getMediaDevice().then(strm => {
             // Update media stream reference
@@ -249,6 +246,7 @@ export class LiveSpeech {
     
 
     stop = (forced) => {
+        window.__speech_engine_started = undefined;
         if(this.#running && this.onend != undefined) this.onend();
         // Release mic
         if(this.#STREAM) this.#STREAM.getTracks().forEach(track => track.stop());
