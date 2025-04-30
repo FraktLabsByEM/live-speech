@@ -20,7 +20,7 @@ export class LiveSpeech {
     #audioNode;
     // Properties
     #RECO_URI;
-    #RECO_PATH;
+    #RECO_PARAMS;
     continuous = false;
     lang = "en";
     timeout = 1;
@@ -84,10 +84,13 @@ export class LiveSpeech {
      * @param {string} audioUri Uri where to request speech recognition.
      * @description LiveSpeech doesn't perform speech recognition, just manages live speech events for custom speech recognition engines.
      */
-    constructor(audioUri, options){
+    constructor(audioUri, request_params, options){
         if(!audioUri) throw new Error('LiveSpeech API requires a speech recognition URI. Param "audioUri" is required');
         // Assign back end properties
         this.#RECO_URI = audioUri;
+        if(request_params){
+            this.#RECO_PARAMS = request_params;
+        }
         // Assign optional properties
         if(options){
             if(options.lang) this.lang = options.lang;
@@ -166,7 +169,6 @@ export class LiveSpeech {
                 default:
                     if(this.#audioQueue.length > 0){
                         if((currentTime - this.#lastSpeechTimestamp) / 1000 > this.timeout){
-                            // console.log(this.#audioQueue)
                             // Dispatch speech end event callback
                             if(this.onspeechend != undefined) this.onspeechend();
                             // Dispatch sound end event callback
@@ -184,24 +186,25 @@ export class LiveSpeech {
                             // Fill form
                             const formData = new FormData();
                             formData.append('file', wavBlob, 'audio.wav');
-                            formData.append('model', 'whisper-1');
-                            formData.append('model', 'whisper-1');
+                            if(this.#RECO_PARAMS != undefined){
+                                for(let key of Object.keys(this.#RECO_PARAMS)){
+                                    formData.append(key, this.#RECO_PARAMS[key]);
+                                }
+                            }
 
-                            const aud = document.createElement("audio");
-                            aud.src = URL.createObjectURL(wavBlob);
-                            aud.controls = true;
-                            document.body.appendChild(aud);
+                            // Request audio transcription
                             fetch(this.#RECO_URI, {
-                                method: 'POST',
-                                body: formData
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                this.onresult(data);
-                            })
-                            .catch(err => {
-                                console.error(`Transcription error: ${err}`);
-                            });
+                                    method: 'POST',
+                                    body: formData
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    this.onresult(data);
+                                })
+                                .catch(err => {
+                                    console.error(`Transcription error: ${err}`);
+                                    this.onerror(err);
+                                });
                         } else {
                             // Add audio chunk to queue
                             this.#audioQueue.push([...data])
