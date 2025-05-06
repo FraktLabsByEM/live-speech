@@ -3,7 +3,7 @@ import audio from "/src/audio_bundle.js";
 const { AudioClassifier, AudioClassifierResult, FilesetResolver } = audio;
 // Instance of audio classifier
 const __audio__resolver = await FilesetResolver.forAudioTasks(
-    "/src/wasm"
+    new URL('./src/wasm', import.meta.url).toString()
   );
 
 
@@ -98,7 +98,7 @@ export class LiveSpeech {
         // Load mediapipe yamnet task
         AudioClassifier.createFromOptions(__audio__resolver, {
                 baseOptions: {
-                    modelAssetPath: "/src/yamnet.tflite"
+                    modelAssetPath: new URL('./src/yamnet.tflite', import.meta.url).toString()
                 }
             }).then(result => {
                 // Define speech recognition engine
